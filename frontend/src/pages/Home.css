@@ -1,0 +1,246 @@
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+}
+
+.upload-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.upload-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  text-align: center;
+}
+
+.upload-area:hover,
+.upload-area.has-file {
+  border-color: var(--brand);
+  background: var(--surface-accent);
+}
+
+.upload-area.has-file {
+  border-style: solid;
+}
+
+.hidden-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.upload-icon {
+  color: var(--text-muted);
+  transition: var(--transition-smooth);
+}
+
+.upload-area:hover .upload-icon {
+  color: var(--brand);
+  transform: translateY(-4px);
+}
+
+.upload-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.upload-hint {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.file-size {
+  margin-top: 8px;
+  padding: 4px 12px;
+  background: var(--brand-soft);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.cancel-btn {
+  background: white !important;
+  color: #ef4444 !important;
+  border: 1px solid #ef4444 !important;
+}
+
+.cancel-btn:hover {
+  background: #fff1f2 !important;
+  border-color: #f43f5e !important;
+}
+
+.secondary-btn {
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upload-progress-bar {
+  height: 8px;
+  background: var(--surface-accent);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: var(--radius-full);
+}
+
+.upload-progress-fill.indeterminate {
+  width: 30%;
+  animation: indeterminate 1.5s infinite ease-in-out;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.upload-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Library Section */
+.library-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.library-meta {
+  padding: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.library-meta h2 {
+  font-size: 1.5rem;
+}
+
+.library-meta span {
+  padding: 4px 14px;
+  background: var(--brand);
+  color: #ffffff;
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 64px 32px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.books-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.book-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border);
+  transition: var(--transition-fast);
+}
+
+.book-item:last-child {
+  border-bottom: 0;
+}
+
+.book-item:hover {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.book-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.book-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.book-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.delete-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.delete-btn:hover {
+  color: var(--error-text);
+  background: var(--error-bg);
+}
+
+@media (max-width: 800px) {
+  .book-item {
+    padding: 20px;
+  }
+}
