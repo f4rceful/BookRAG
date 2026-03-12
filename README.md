@@ -36,7 +36,7 @@
 
 ## Требования
 
-- Python 3.10–3.12 (3.13 не поддерживается PyTorch)
+- Python 3.10+
 - [Node.js 18+](https://nodejs.org/) — нужен для запуска фронтенда (`npm install`, `npm run dev`)
 - [Ollama](https://ollama.com/) — установлен и запущен
 
