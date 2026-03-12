@@ -46,11 +46,30 @@ _ENDING_QUERY_TERMS = {
 }
 
 
+def _get_device() -> str:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            cap = torch.cuda.get_device_capability(0)
+            if cap[0] >= 7:
+                device_name = torch.cuda.get_device_name(0)
+                logger.info(f"GPU поддерживается, используем CUDA: {device_name}")
+                return "cuda"
+            else:
+                device_name = torch.cuda.get_device_name(0)
+                logger.warning(f"GPU {device_name} (sm_{cap[0]}{cap[1]}) не поддерживается PyTorch, используем CPU")
+    except Exception:
+        pass
+    logger.info("Используем CPU для эмбеддингов")
+    return "cpu"
+
+
 class RAGService:
     def __init__(self):
         logger.info(f"Инициализация эмбеддингов: {settings.embedding_model}")
         self.embeddings = HuggingFaceEmbeddings(
             model_name=settings.embedding_model,
+            model_kwargs={"device": _get_device()},
             encode_kwargs={"normalize_embeddings": True},
         )
         self._bm25_preprocess_func = self._build_bm25_preprocess_func()
