@@ -36,7 +36,7 @@
 
 ## Требования
 
-- Python 3.10+
+- Python 3.10–3.12
 - [Node.js 18+](https://nodejs.org/) — нужен для запуска фронтенда (`npm install`, `npm run dev`)
 - [Ollama](https://ollama.com/) — установлен и запущен
 
