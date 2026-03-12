@@ -147,23 +147,32 @@ const Search = () => {
       const decoder = new TextDecoder();
       let accumulated = '';
       let sources: SearchResult[] = [];
+      let buffer = '';
 
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        for (const line of text.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const msg = JSON.parse(line.slice(6));
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() || '';
 
-          if (msg.type === 'chunk') {
-            accumulated += msg.text;
-            setStreamingAnswer(accumulated);
-          } else if (msg.type === 'sources') {
-            sources = msg.sources;
-          } else if (msg.type === 'error') {
-            throw new Error(msg.text);
+        for (const block of blocks) {
+          for (const line of block.split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const msg = JSON.parse(line.slice(6));
+              if (msg.type === 'chunk') {
+                accumulated += msg.text;
+                setStreamingAnswer(accumulated);
+              } else if (msg.type === 'sources') {
+                sources = msg.sources;
+              } else if (msg.type === 'error') {
+                throw new Error(msg.text);
+              }
+            } catch (e) {
+              console.error('SSE parse error:', e);
+            }
           }
         }
       }

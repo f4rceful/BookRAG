@@ -37,7 +37,7 @@
 ## Требования
 
 - Python 3.10+
-- Node.js 18+
+- [Node.js 18+](https://nodejs.org/) — нужен для запуска фронтенда (`npm install`, `npm run dev`)
 - [Ollama](https://ollama.com/) — установлен и запущен
 
 ## Быстрый старт
@@ -73,7 +73,7 @@ source venv/bin/activate
 # Linux/macOS (fish):
 source venv/bin/activate.fish
 
-pip install -r requirements.txt
+python setup.py
 uvicorn main:app --reload
 ```
 

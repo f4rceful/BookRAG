@@ -13,6 +13,7 @@ import re
 import json
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from config import settings
 
@@ -618,8 +619,14 @@ class RAGService:
         candidate_map: Dict[Tuple[str, int], Dict[str, Any]] = {}
         max_start_index = 0
 
-        for q in queries:
-            v_hits = self.vector_store.similarity_search_with_relevance_scores(q, k=vector_candidate_k, filter=chroma_filter)
+        # Параллельный векторный поиск для всех вариантов запроса
+        def _vector_search(q: str):
+            return self.vector_store.similarity_search_with_relevance_scores(q, k=vector_candidate_k, filter=chroma_filter)
+
+        with ThreadPoolExecutor(max_workers=min(len(queries), 3)) as executor:
+            vector_results = list(executor.map(_vector_search, queries))
+
+        for v_hits in vector_results:
             for rank, (doc, relevance) in enumerate(v_hits, start=1):
                 key = self._doc_key(doc)
                 max_start_index = max(max_start_index, key[1])
@@ -631,8 +638,10 @@ class RAGService:
                     candidate["vector_rank"] = rank
                     candidate["vector_relevance"] = max(candidate["vector_relevance"], float(relevance))
 
-            bm25_retriever = self._get_bm25_retriever(k=bm25_candidate_k)
-            if bm25_retriever:
+        # BM25 поиск (индекс пересобирается один раз, затем кэшируется)
+        bm25_retriever = self._get_bm25_retriever(k=bm25_candidate_k)
+        if bm25_retriever:
+            for q in queries:
                 b_docs = bm25_retriever.invoke(q)
                 if sources is not None:
                     b_docs = [d for d in b_docs if d.metadata.get("source") in sources]
