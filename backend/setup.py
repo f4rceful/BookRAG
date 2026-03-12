@@ -38,10 +38,13 @@ def main():
 
         if index_url:
             print(f"Устанавливаем PyTorch с поддержкой GPU ({label})...")
-            subprocess.check_call([
+            result = subprocess.run([
                 sys.executable, "-m", "pip", "install", "torch",
                 "--index-url", index_url
             ])
+            if result.returncode != 0:
+                print(f"Не удалось установить GPU-версию (возможно, Python {sys.version_info.major}.{sys.version_info.minor} не поддерживается индексом). Устанавливаем CPU-версию...")
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "torch"])
         else:
             print(f"CUDA {major}.{minor} не поддерживается, устанавливаем CPU-версию PyTorch...")
     else:
