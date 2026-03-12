@@ -68,8 +68,10 @@ python -m venv venv
 
 # Windows:
 venv\Scripts\activate
-# Linux/macOS:
+# Linux/macOS (bash/zsh):
 source venv/bin/activate
+# Linux/macOS (fish):
+source venv/bin/activate.fish
 
 pip install -r requirements.txt
 uvicorn main:app --reload
