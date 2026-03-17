@@ -73,6 +73,9 @@ source venv/bin/activate
 # Linux/macOS (fish):
 source venv/bin/activate.fish
 
+#устанавливаем PyTorch версии 2.6.0
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall
+
 python setup.py
 uvicorn main:app --reload
 ```
@@ -85,6 +88,7 @@ Swagger-документация: `http://localhost:8000/docs`
 В новом терминале:
 
 ```bash
+cd BookRAG
 cd frontend
 npm install
 npm run dev
