@@ -1,0 +1,43 @@
+ Started server process [3540]
+INFO:     Waiting for application startup.
+INFO:     Проверка связи с Ollama...
+2026-03-12 18:21:34,176 - httpx - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:     ✅ Модель 'qwen3.5:4b' готова к работе.
+INFO:     Application startup complete.
+INFO:     📚 Книга уже в базе, пропускаем: Булгаков — «Мастер и Маргарита».txt (246 чанков)
+INFO:     📚 Книга уже в базе, пропускаем: Достоевский — «Преступление и наказание».txt (2374 чанков)
+INFO:     📚 Книга уже в базе, пропускаем: Пушкин — «Евгений Онегин».txt (650 чанков)
+INFO:     📚 Книга уже в базе, пропускаем: Чехов — «Вишнёвый сад».txt (186 чанков)
+INFO:     127.0.0.1:52851 - "GET /api/books HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52851 - "GET /api/books HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52851 - "POST /api/ask/stream HTTP/1.1" 200 OK
+2026-03-12 18:21:49,073 - services.rag_service - INFO - Поиск: 'Что произошло с Берлиозом у Патриарших прудов?', top_k=5, sources=['Булгаков — «Мастер и Маргарита».txt']
+2026-03-12 18:21:49,073 - services.rag_service - INFO - Загрузка Cross-Encoder для ре-ранкинга...
+2026-03-12 18:21:49,325 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-03-12 18:21:49,373 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/config.json "HTTP/1.1 200 OK"
+Loading weights: 100%|█████████████████████████████████████████████████████████████| 201/201 [00:00<00:00, 9125.06it/s]
+BertForSequenceClassification LOAD REPORT from: cross-encoder/ms-marco-MiniLM-L12-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED    :can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+2026-03-12 18:21:49,610 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-03-12 18:21:49,656 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/config.json "HTTP/1.1 200 OK"
+2026-03-12 18:21:49,805 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-03-12 18:21:49,851 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-03-12 18:21:50,007 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/cross-encoder/ms-marco-MiniLM-L12-v2/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-03-12 18:21:50,160 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/cross-encoder/ms-marco-MiniLM-L12-v2/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-03-12 18:21:50,359 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-03-12 18:21:50,405 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/README.md "HTTP/1.1 200 OK"
+2026-03-12 18:21:50,408 - sentence_transformers.cross_encoder.CrossEncoder - INFO - Use pytorch device: cpu
+2026-03-12 18:21:50,562 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/cross-encoder/ms-marco-MiniLM-L12-v2 "HTTP/1.1 200 OK"
+2026-03-12 18:21:50,563 - services.rag_service - INFO - Cross-Encoder готов
+2026-03-12 18:21:50,565 - services.rag_service - INFO - Выполнение Query Expansion для запроса: 'Что произошло с Берлиозом у Патриарших прудов?'
+2026-03-12 18:21:53,218 - httpx - INFO - HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-12 18:23:53,650 - services.rag_service - INFO - Пересборка BM25-индекса (3456 чанков)...
+2026-03-12 18:23:57,907 - services.rag_service - INFO - BM25-индекс готов
+Batches: 100%|███████████████████████████████████████████████████████████████████████████| 1/1 [00:02<00:00,  2.09s/it]
+2026-03-12 18:24:00,067 - services.rag_service - INFO - Ре-ранкинг: 19 → 5 результатов
+2026-03-12 18:24:01,671 - httpx - INFO - HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"

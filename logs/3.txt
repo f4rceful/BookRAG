@@ -1,0 +1,66 @@
+ Started server process [6580]
+INFO:     Waiting for application startup.
+INFO:     Проверка связи с Ollama...
+2026-03-13 11:00:08,027 - httpx - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:     ✅ Модель 'qwen3.5:4b' готова к работе.
+INFO:     Application startup complete.
+INFO:     📖 Авто-индексация: Булгаков — «Мастер и Маргарита».txt
+2026-03-13 11:00:08,051 - services.rag_service - INFO - Начало индексации документа: Булгаков — «Мастер и Маргарита».txt2026-03-13 11:00:08,064 - services.rag_service - INFO - [Булгаков — «Мастер и Маргарита».txt] После фильтрации коротких чанков: 246
+INFO:     ✅ Проиндексировано: Булгаков — «Мастер и Маргарита».txt (246 чанков)
+INFO:     📖 Авто-индексация: Достоевский — «Преступление и наказание».txt
+2026-03-13 11:00:13,278 - services.rag_service - INFO - Начало индексации документа: Достоевский — «Преступление и наказание».txt
+2026-03-13 11:00:13,451 - services.rag_service - INFO - [Достоевский — «Преступление и наказание».txt] После фильтрации коротких чанков: 2374
+INFO:     127.0.0.1:50459 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     ✅ Проиндексировано: Достоевский — «Преступление и наказание».txt (2374 чанков)
+INFO:     📖 Авто-индексация: Пушкин — «Евгений Онегин».txt
+2026-03-13 11:01:00,221 - services.rag_service - INFO - Начало индексации документа: Пушкин — «Евгений Онегин».txt
+2026-03-13 11:01:00,252 - services.rag_service - INFO - [Пушкин — «Евгений Онегин».txt] После фильтрации коротких чанков: 650
+INFO:     ✅ Проиндексировано: Пушкин — «Евгений Онегин».txt (650 чанков)
+INFO:     📖 Авто-индексация: Чехов — «Вишнёвый сад».txt
+2026-03-13 11:01:11,439 - services.rag_service - INFO - Начало индексации документа: Чехов — «Вишнёвый сад».txt
+2026-03-13 11:01:11,449 - services.rag_service - INFO - [Чехов — «Вишнёвый сад».txt] После фильтрации коротких чанков: 186
+INFO:     127.0.0.1:50460 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/books HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/books HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     ✅ Проиндексировано: Чехов — «Вишнёвый сад».txt (186 чанков)
+INFO:     127.0.0.1:50460 - "GET /api/indexing-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/books HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/books HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/books HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "OPTIONS /api/ask/stream HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50485 - "POST /api/ask/stream HTTP/1.1" 200 OK
+2026-03-13 11:01:22,591 - services.rag_service - INFO - Поиск: 'Кто такой Воланд и зачем он приехал в Москву?', top_k=5, sources=['Булгаков — «Мастер и Маргарита».txt']
+2026-03-13 11:01:22,591 - services.rag_service - INFO - Загрузка Cross-Encoder для ре-ранкинга...
+2026-03-13 11:01:23,215 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-03-13 11:01:23,248 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/config.json "HTTP/1.1 200 OK"
+Loading weights: 100%|█████████████████████████████████████████████████████████████| 201/201 [00:00<00:00, 6593.48it/s]
+BertForSequenceClassification LOAD REPORT from: cross-encoder/ms-marco-MiniLM-L12-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED    :can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+2026-03-13 11:01:23,491 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-03-13 11:01:23,522 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/config.json "HTTP/1.1 200 OK"
+2026-03-13 11:01:23,669 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-03-13 11:01:23,700 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-03-13 11:01:23,848 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/cross-encoder/ms-marco-MiniLM-L12-v2/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-03-13 11:01:23,996 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/cross-encoder/ms-marco-MiniLM-L12-v2/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-03-13 11:01:24,196 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/cross-encoder/ms-marco-MiniLM-L12-v2/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-03-13 11:01:24,225 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/cross-encoder/ms-marco-MiniLM-L12-v2/7b0235231ca2674cb8ca8f022859a6eba2b1c968/README.md "HTTP/1.1 200 OK"
+2026-03-13 11:01:24,227 - sentence_transformers.cross_encoder.CrossEncoder - INFO - Use pytorch device: cuda:0
+2026-03-13 11:01:24,693 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/models/cross-encoder/ms-marco-MiniLM-L12-v2 "HTTP/1.1 200 OK"
+2026-03-13 11:01:24,694 - services.rag_service - INFO - Cross-Encoder готов
+2026-03-13 11:01:24,696 - services.rag_service - INFO - Выполнение Query Expansion для запроса: 'Кто такой Воланд и зачем он приехал в Москву?'
+2026-03-13 11:01:32,719 - httpx - INFO - HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-13 11:06:46,894 - services.rag_service - INFO - Пересборка BM25-индекса (3456 чанков)...
+2026-03-13 11:06:53,763 - services.rag_service - INFO - BM25-индекс готов
+Batches: 100%|█████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00,  2.08it/s]
+2026-03-13 11:06:54,457 - services.rag_service - INFO - Ре-ранкинг: 27 → 5 результатов
+2026-03-13 11:06:56,698 - httpx - INFO - HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"

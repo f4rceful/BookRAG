@@ -107,10 +107,9 @@ async def startup_event():
     except Exception as e:
         logger.error(f"❌ Не удалось подключиться к Ollama на {settings.ollama_base_url}: {e}")
 
-    # Фоновая индексация книг из директории books
-    books_dir = os.path.abspath(settings.books_directory)
-    os.makedirs(books_dir, exist_ok=True)
-    asyncio.create_task(_auto_index_books(books_dir, logger))
+    # Фоновая индексация книг отключена для безопасности (запускать вручную)
+    # asyncio.create_task(_auto_index_books(books_dir, logger))
+    logger.info("Авто-индексация отключена. Пожалуйста, загрузите книги через интерфейс или запустите индексацию вручную.")
 
 app.include_router(router, prefix="/api")
 

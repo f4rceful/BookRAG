@@ -10,6 +10,7 @@ import asyncio
 import math
 import os
 import re
+import sys
 import json
 import logging
 import threading
@@ -50,29 +51,56 @@ _ENDING_QUERY_TERMS = {
 def _get_device() -> str:
     try:
         import torch
+
+        # NVIDIA CUDA или AMD ROCm (ROCm использует тот же torch.cuda API)
         if torch.cuda.is_available():
-            cap = torch.cuda.get_device_capability(0)
-            if cap[0] >= 7:
-                device_name = torch.cuda.get_device_name(0)
-                logger.info(f"GPU поддерживается, используем CUDA: {device_name}")
+            device_name = torch.cuda.get_device_name(0)
+            try:
+                cap = torch.cuda.get_device_capability(0)
+                # PyTorch 2.6 поддерживает sm_60+ (Pascal и новее, GTX 1050 = sm_61)
+                if cap[0] >= 6:
+                    logger.info(f"NVIDIA GPU (sm_{cap[0]}{cap[1]}), используем CUDA: {device_name}")
+                    return "cuda"
+                # ROCm не использует compute capability — пропускаем проверку
+                is_amd = "amd" in device_name.lower() or "radeon" in device_name.lower()
+                if is_amd:
+                    logger.info(f"AMD GPU (ROCm), используем cuda device: {device_name}")
+                    return "cuda"
+                logger.warning(
+                    f"GPU {device_name} (sm_{cap[0]}{cap[1]}) не поддерживается "
+                    f"PyTorch 2.6 (нужен sm_60+), используем CPU"
+                )
+            except Exception:
+                # ROCm иногда не поддерживает get_device_capability
+                logger.info(f"GPU обнаружен, используем: {device_name}")
                 return "cuda"
-            else:
-                device_name = torch.cuda.get_device_name(0)
-                logger.warning(f"GPU {device_name} (sm_{cap[0]}{cap[1]}) не поддерживается PyTorch, используем CPU")
+
+        # Apple Silicon — MPS (Metal Performance Shaders)
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            logger.info("Apple Silicon обнаружен, используем MPS")
+            return "mps"
+
     except Exception:
         pass
+
     logger.info("Используем CPU для эмбеддингов")
     return "cpu"
+
+
+def _build_embeddings(model_name: str) -> HuggingFaceEmbeddings:
+    """Выбирает оптимальный бэкенд для эмбеддингов под текущее железо."""
+    device = _get_device()
+    return HuggingFaceEmbeddings(
+        model_name=model_name,
+        model_kwargs={"device": device},
+        encode_kwargs={"normalize_embeddings": True},
+    )
 
 
 class RAGService:
     def __init__(self):
         logger.info(f"Инициализация эмбеддингов: {settings.embedding_model}")
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=settings.embedding_model,
-            model_kwargs={"device": _get_device()},
-            encode_kwargs={"normalize_embeddings": True},
-        )
+        self.embeddings = _build_embeddings(settings.embedding_model)
         self._bm25_preprocess_func = self._build_bm25_preprocess_func()
         self._indexing_progress: Dict[str, Dict] = {}
 
@@ -91,7 +119,9 @@ class RAGService:
         self.llm = ChatOllama(
             base_url=settings.ollama_base_url,
             model=settings.model_name,
-            temperature=0.1
+            temperature=0.1,
+            num_ctx=3072,
+            timeout=180 # Даем Ollama 3 минуты, чтобы она успела все обдумать на AMD
         )
 
         self.text_splitter = RecursiveCharacterTextSplitter(
@@ -711,21 +741,16 @@ class RAGService:
 
         rerank_candidates = expanded_candidates[:rerank_pool_size]
 
-        # Финальное ранжирование через Cross-Encoder
-        if reranker and len(rerank_candidates) > top_k:
-            pairs = [(query, doc.page_content) for doc in rerank_candidates]
-            raw_scores = reranker.predict(pairs)
-            ranked = sorted(zip(raw_scores, rerank_candidates), key=lambda x: x[0], reverse=True)
-            final_docs = [
-                (doc, self._reranker_score_to_display(float(score)))
-                for score, doc in ranked[:top_k]
-            ]
-            logger.info(f"Ре-ранкинг: {len(rerank_candidates)} → {top_k} результатов")
-        else:
-            final_docs = [
-                (doc, round(score, 3))
-                for score, doc in hybrid_ranked[:top_k]
-            ]
+        # Финальное ранжирование через Cross-Encoder (ОТКЛЮЧЕНО ДЛЯ БЕЗОПАСНОСТИ)
+        # if reranker and len(rerank_candidates) > top_k:
+        #    ...
+        
+        # Используем базовое гибридное ранжирование (оно легкое)
+        final_docs = [
+            (doc, round(score, 3))
+            for score, doc in hybrid_ranked[:top_k]
+        ]
+        logger.info(f"Используется базовое ранжирование: {top_k} результатов")
 
         # Форматирование результатов
         MIN_CHUNK_LENGTH = 50

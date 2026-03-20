@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     bm25_max_candidates: int = 500
     vector_max_candidates: int = 60
 
-    # Расширение запроса через LLM
-    query_expansion_enabled: bool = True
+    # Расширение запроса через LLM (отключено для скорости)
+    query_expansion_enabled: bool = False
     query_expansion_min_length: int = 20
 
     # Веса гибридного поиска

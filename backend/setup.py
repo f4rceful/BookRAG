@@ -1,59 +1,94 @@
 import subprocess
 import sys
 import re
+import os
+import platform
+from pathlib import Path
 
+# Минимальная рабочая версия PyTorch для проекта
+TORCH_MIN_VERSION = "2.5.0"
+
+def run_command(cmd: list):
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        return result.returncode == 0, result.stdout
+    except FileNotFoundError:
+        return False, ""
 
 def get_cuda_version():
-    try:
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True)
-        if result.returncode != 0:
-            return None
-        match = re.search(r"CUDA Version:\s*(\d+)\.(\d+)", result.stdout)
-        if match:
-            return int(match.group(1)), int(match.group(2))
-    except FileNotFoundError:
-        pass
+    ok, out = run_command(["nvidia-smi"])
+    if ok:
+        match = re.search(r"CUDA Version:\s*(\d+)\.(\d+)", out)
+        if match: return int(match.group(1)), int(match.group(2))
     return None
 
+def has_amd_gpu_windows():
+    """Проверка наличия AMD GPU на Windows через PowerShell."""
+    if sys.platform != "win32":
+        return False
+    ok, out = run_command(["powershell", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"])
+    if ok:
+        output = out.lower()
+        return "amd" in output or "radeon" in output
+    return False
+
+def is_apple_silicon():
+    return sys.platform == "darwin" and platform.machine() == "arm64"
+
+def install_pytorch():
+    print("--- Фаза 1: Установка PyTorch ---")
+    cuda = get_cuda_version()
+    amd_win = has_amd_gpu_windows()
+    
+    index_url = None
+    label = "CPU"
+    
+    if cuda:
+        major, _ = cuda
+        print(f"Найдена NVIDIA CUDA {major}.x")
+        index_url = "https://download.pytorch.org/whl/cu124" if major >= 12 else "https://download.pytorch.org/whl/cu118"
+        label = "NVIDIA GPU"
+    elif amd_win:
+        print("Найдена видеокарта AMD (Windows).")
+        print("INFO: Ollama будет использовать GPU автоматически.")
+        print("Эмбеддинги будут работать на CPU (самый стабильный вариант для AMD Windows).")
+        label = "AMD (Ollama GPU + Torch CPU)"
+    elif sys.platform == "linux" and Path("/opt/rocm").exists():
+        index_url = "https://download.pytorch.org/whl/rocm6.1"
+        label = "AMD ROCm (Linux)"
+    elif is_apple_silicon():
+        label = "Apple Silicon (MPS)"
+    
+    print(f"Выбрана конфигурация: {label}")
+    
+    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+    
+    install_cmd = [sys.executable, "-m", "pip", "install", f"torch>={TORCH_MIN_VERSION}"]
+    if index_url:
+        install_cmd += ["--index-url", index_url]
+    
+    subprocess.run(install_cmd)
+
+def install_requirements():
+    print("\n--- Фаза 2: Установка зависимостей проекта ---")
+    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+
+def verify_gpu():
+    print("\n--- Фаза 3: Проверка GPU ---")
+    # Для Ollama мы не можем проверить из Python напрямую легко, но проверим Torch
+    script = "import torch; print(f'Torch version: {torch.__version__}'); print(f'Torch CUDA: {torch.cuda.is_available()}')"
+    subprocess.run([sys.executable, "-c", script])
+    
+    if has_amd_gpu_windows():
+        print("ПОДСКАЗКА: Твоя AMD видяха будет работать через Ollama.")
+        print("Убедись, что Ollama запущена (иконка в трее).")
 
 def main():
-    cuda = get_cuda_version()
-
-    if cuda:
-        major, minor = cuda
-        print(f"Обнаружена CUDA {major}.{minor}")
-
-        if major >= 12:
-            index_url = "https://download.pytorch.org/whl/cu121"
-            label = "CUDA 12.1"
-        elif major == 11 and minor >= 8:
-            index_url = "https://download.pytorch.org/whl/cu118"
-            label = "CUDA 11.8"
-        elif major == 11:
-            index_url = "https://download.pytorch.org/whl/cu117"
-            label = "CUDA 11.7"
-        else:
-            index_url = None
-            label = None
-
-        if index_url:
-            print(f"Устанавливаем PyTorch с поддержкой GPU ({label})...")
-            result = subprocess.run([
-                sys.executable, "-m", "pip", "install", "torch",
-                "--index-url", index_url
-            ])
-            if result.returncode != 0:
-                print(f"Не удалось установить GPU-версию (возможно, Python {sys.version_info.major}.{sys.version_info.minor} не поддерживается индексом). Устанавливаем CPU-версию...")
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "torch"])
-        else:
-            print(f"CUDA {major}.{minor} не поддерживается, устанавливаем CPU-версию PyTorch...")
-    else:
-        print("NVIDIA GPU не обнаружен (AMD GPU не поддерживается), устанавливаем CPU-версию PyTorch...")
-
-    print("Устанавливаем остальные зависимости...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
-    print("✅ Установка завершена!")
-
+    print("=== BookRAG Installer (AMD Optimized) ===")
+    install_pytorch()
+    install_requirements()
+    verify_gpu()
+    print("\nГотово! Запускай проект.")
 
 if __name__ == "__main__":
     main()
