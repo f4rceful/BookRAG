@@ -1,4 +1,3 @@
-# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -10,17 +9,11 @@ build/
 .venv
 venv/
 ENV/
-
-# Backend specific
 backend/venv/
 backend/chroma_db/
-
-# Node
 node_modules/
 frontend/node_modules/
 frontend/dist/
-
-# IDE / Tools
 .idea/
 .vscode/
 .serena/
@@ -29,12 +22,10 @@ frontend/dist/
 *.njsproj
 *.sln
 *.sw?
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Large book files in root (re-upload after cloning)
+logs/
+*.log
+remote-kernel/
 /*.txt
 !/задание.txt
-

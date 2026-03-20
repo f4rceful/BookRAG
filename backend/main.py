@@ -58,21 +58,21 @@ async def _auto_index_books(books_dir: str, logger) -> None:
             with open(filepath, "rb") as f:
                 content = f.read()
 
-            try:
-                text = content.decode("utf-8")
-            except UnicodeDecodeError:
-                text = None
-                detected_enc = (chardet.detect(content).get("encoding") or "")
-                for enc in [detected_enc, "windows-1251", "cp1251", "latin-1"]:
-                    if not enc:
-                        continue
-                    try:
-                        text = content.decode(enc)
-                        break
-                    except (UnicodeDecodeError, LookupError):
-                        continue
+            # Определяем кодировку через chardet, затем пробуем UTF-8 и CP1251
+            detected = chardet.detect(content)
+            detected_enc = detected.get("encoding") or "utf-8"
+            text = None
+            for enc in [detected_enc, "utf-8", "cp1251"]:
+                try:
+                    text = content.decode(enc)
+                    logger.info(f"Файл {filename} прочитан в кодировке {enc}")
+                    break
+                except (UnicodeDecodeError, LookupError):
+                    continue
+
             if text is None:
                 text = content.decode("utf-8", errors="replace")
+                logger.warning(f"Файл {filename}: кодировка не определена, используем UTF-8 с заменой")
 
             async for step in rag_service.index_document_async(text, filename):
                 if step.get("type") == "success":
@@ -107,9 +107,10 @@ async def startup_event():
     except Exception as e:
         logger.error(f"❌ Не удалось подключиться к Ollama на {settings.ollama_base_url}: {e}")
 
-    # Фоновая индексация книг отключена для безопасности (запускать вручную)
-    # asyncio.create_task(_auto_index_books(books_dir, logger))
-    logger.info("Авто-индексация отключена. Пожалуйста, загрузите книги через интерфейс или запустите индексацию вручную.")
+    # Фоновая индексация книг из директории books
+    books_dir = os.path.abspath(settings.books_directory)
+    os.makedirs(books_dir, exist_ok=True)
+    asyncio.create_task(_auto_index_books(books_dir, logger))
 
 app.include_router(router, prefix="/api")
 

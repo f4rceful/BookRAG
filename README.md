@@ -8,7 +8,7 @@
 | --- | --- |
 | Фронтенд | React 19, TypeScript, Vite, framer-motion |
 | Бэкенд | Python, FastAPI, LangChain |
-| Эмбеддинги | `BAAI/bge-m3` |
+| Эмбеддинги | `intfloat/multilingual-e5-small` |
 | Векторная БД | ChromaDB (персистентная) |
 | LLM | Ollama (локально) |
 | Поиск | Гибридный BM25 + Векторный + Cross-Encoder ре-ранкинг |
@@ -36,7 +36,7 @@
 
 ## Требования
 
-- Python 3.10–3.12
+- Python 3.12
 - [Node.js 18+](https://nodejs.org/) — нужен для запуска фронтенда (`npm install`, `npm run dev`)
 - [Ollama](https://ollama.com/) — установлен и запущен
 
@@ -52,12 +52,11 @@ cd BookRAG
 ### 2. Скачайте модель Ollama
 
 ```bash
-# Рекомендуется (для мощных устройств):
-ollama pull gemma3:12b
+# Рекомендуется (быстрая, хорошее качество на русском):
+ollama pull qwen2.5:3b
 
-# Или более лёгкие варианты:
-ollama pull llama3.1:8b
-ollama pull qwen3.5:4b
+# Или более мощный вариант:
+ollama pull gemma3:12b
 ```
 
 ### 3. Запустите бэкенд
@@ -70,26 +69,24 @@ python -m venv venv
 venv\Scripts\activate
 # Linux/macOS (bash/zsh):
 source venv/bin/activate
-# Linux/macOS (fish):
-source venv/bin/activate.fish
 
-#устанавливаем PyTorch версии 2.6.0
-pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall
-
+# Установка зависимостей (автоматически определяет GPU):
 python setup.py
-uvicorn main:app --reload
+
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 Бэкенд будет доступен на `http://localhost:8000`.
 Swagger-документация: `http://localhost:8000/docs`
+
+> `setup.py` автоматически определяет видеокарту (NVIDIA CUDA, AMD ROCm, Apple Silicon MPS) и устанавливает подходящую версию PyTorch.
 
 ### 4. Запустите фронтенд
 
 В новом терминале:
 
 ```bash
-cd BookRAG
-cd frontend
+cd BookRAG/frontend
 npm install
 npm run dev
 ```
@@ -112,13 +109,13 @@ docker-compose up --build
 
 ```env
 # Модель Ollama (должна быть скачана через ollama pull)
-MODEL_NAME=qwen3.5:4b
+MODEL_NAME=qwen2.5:3b
 
 # URL Ollama (по умолчанию локальный)
 OLLAMA_BASE_URL=http://localhost:11434
 
 # Модель эмбеддингов (скачается автоматически с HuggingFace)
-EMBEDDING_MODEL=BAAI/bge-m3
+EMBEDDING_MODEL=intfloat/multilingual-e5-small
 
 # Параметры нарезки текста (влияют на качество поиска)
 CHUNK_SIZE=800
@@ -130,7 +127,7 @@ INDEX_BATCH_SIZE=100
 
 ## Загрузка книг
 
-Поддерживается формат `.txt` (до 50 МБ). Кодировка определяется автоматически (UTF-8, Windows-1251 и другие).
+Поддерживается формат `.txt` (до 50 МБ). Кодировка определяется автоматически (UTF-8, UTF-8 BOM, Windows-1251 и другие).
 
 ### Авто-индексация из папки
 
@@ -202,10 +199,9 @@ curl -X POST http://localhost:8000/api/model \
 
 | Модель | RAM | Качество на русском | Скорость |
 | --- | --- | --- | --- |
+| `qwen2.5:3b` | ~2 ГБ | ★★★★☆ | Быстрая |
 | `gemma3:12b` | ~8 ГБ | ★★★★★ | Средняя |
-| `llama3.1:8b` | ~6 ГБ | ★★★★☆ | Средняя |
-| `qwen3.5:4b` | ~3.4 ГБ | ★★★★☆ | Быстрая |
-| `qwen3.5:0.8b` | ~1 ГБ | ★★★☆☆ | Очень быстрая |
+| `qwen2.5:0.5b` | ~1 ГБ | ★★★☆☆ | Очень быстрая |
 
 ---
 
@@ -326,3 +322,4 @@ curl -X POST http://localhost:8000/api/ask \
   "answer": "Согласно предоставленным фрагментам, вишнёвый сад купил Лопахин. Он купил его, потому что Любовь Андреевна и другие владельцы имения не смогли расплатиться с долгами — имение было выставлено на торги. Лопахин заранее предлагал разбить землю на дачные участки, чтобы спасти имение, но владельцы так и не решились принять его проект до начала торгов.",
   "sources": ["Чехов — «Вишнёвый сад».txt"]
 }
+```
