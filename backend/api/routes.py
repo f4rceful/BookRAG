@@ -1,7 +1,6 @@
 import asyncio
 import os
 import json
-import chardet
 import httpx
 import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Request
@@ -11,6 +10,7 @@ from typing import Optional, List
 from api.schemas import SearchResponse, AskResponse
 from api.dependencies import limiter
 from services.rag_service import rag_service
+from services.book_parser import detect_and_decode
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -113,30 +113,7 @@ async def upload_book(file: UploadFile = File(...)):
                 detail=f"Файл слишком большой. Максимальный размер: {MAX_UPLOAD_SIZE // 1024 // 1024} МБ."
             )
 
-        # Пробуем строгий UTF-8 первым
-        try:
-            text = content.decode("utf-8")
-            logger.info(f"Файл {safe_filename} декодирован как UTF-8 (строгий)")
-        except UnicodeDecodeError:
-            # UTF-8 не подошёл доверяем chardet для однобайтных кодировок
-            text = None
-            detected = chardet.detect(content)
-            detected_enc = detected.get("encoding") or ""
-
-            # Пробуем chardet-кодировку, затем cp1251, затем fallback
-            for enc in [detected_enc, "windows-1251", "cp1251", "latin-1"]:
-                if not enc:
-                    continue
-                try:
-                    text = content.decode(enc)
-                    logger.info(f"Файл {safe_filename} декодирован как {enc}")
-                    break
-                except (UnicodeDecodeError, LookupError):
-                    continue
-
-        if text is None:
-            text = content.decode("utf-8", errors="replace")
-            logger.warning(f"Файл {safe_filename} декодирован с потерями (fallback)")
+        text = detect_and_decode(content, filename=safe_filename)
 
         async def generate_progress():
             try:
@@ -144,7 +121,7 @@ async def upload_book(file: UploadFile = File(...)):
                     yield f"data: {json.dumps(step)}\n\n"
             except asyncio.CancelledError:
                 logger.warning(f"Индексация '{safe_filename}' прервана клиентом.")
-                # Генератор в rag_service сам произведет очистку в блоке finally
+                # очистка частичных данных происходит в finally блоке rag_service
                 raise
             except Exception as e:
                 logger.error(f"Ошибка при индексации: {e}")
@@ -157,14 +134,30 @@ async def upload_book(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при обработке файла: {str(e)}")
 
+async def _validate_sources(sources: Optional[List[str]]) -> None:
+    # Проверяет что все запрошенные источники существуют в базе, иначе 400
+    if not sources:
+        return
+    books = await asyncio.to_thread(rag_service.get_books)
+    known = set(books)
+    invalid = [s for s in sources if s not in known]
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Книги не найдены в базе: {invalid}. Доступные: {sorted(known)}"
+        )
+
+
 @router.post("/search", response_model=SearchResponse, summary="Поиск фрагментов по книгам")
 async def search(request: SearchRequest):
+    await _validate_sources(request.sources)
     results = await asyncio.to_thread(rag_service.search, request.query, request.top_k, request.sources)
     return {"results": results}
 
 @router.post("/ask", response_model=AskResponse, summary="Вопрос по тексту книг")
 @limiter.limit("10/minute")
 async def ask_question(request: Request, body: AskRequest):
+    await _validate_sources(body.sources)
     try:
         answer, found_sources = await asyncio.to_thread(rag_service.ask, body.question, body.top_k, body.sources)
         return {"answer": answer, "sources": found_sources}
@@ -174,6 +167,8 @@ async def ask_question(request: Request, body: AskRequest):
 @router.post("/ask/stream", summary="Стриминг ответа по тексту книг (SSE)")
 @limiter.limit("10/minute")
 async def ask_stream(request: Request, body: AskRequest):
+    await _validate_sources(body.sources)
+
     async def generate():
         try:
             async for chunk in rag_service.ask_stream_async(body.question, body.top_k, body.sources):

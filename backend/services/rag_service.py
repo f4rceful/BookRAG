@@ -88,7 +88,7 @@ def _get_device() -> str:
 
 
 def _build_embeddings(model_name: str) -> HuggingFaceEmbeddings:
-    """Выбирает оптимальный бэкенд для эмбеддингов под текущее железо."""
+    # Выбирает оптимальный бэкенд для эмбеддингов под текущее железо
     device = _get_device()
     return HuggingFaceEmbeddings(
         model_name=model_name,
@@ -103,6 +103,7 @@ class RAGService:
         self.embeddings = _build_embeddings(settings.embedding_model)
         self._bm25_preprocess_func = self._build_bm25_preprocess_func()
         self._indexing_progress: Dict[str, Dict] = {}
+        self._progress_lock = threading.Lock()
 
         # Абсолютный путь для работы с ChromaDB на Windows
         persist_dir = os.path.abspath(settings.chroma_persist_directory)
@@ -161,7 +162,7 @@ class RAGService:
             ("user", "{question}")
         ])
 
-        self._bm25_doc_count: int = -1
+        self._bm25_dirty: bool = True
         self._bm25_retriever: Optional[BM25Retriever] = None
         self._source_chunks_cache: Dict[str, List[Document]] = {}
         self._source_chunk_positions: Dict[str, Dict[int, int]] = {}
@@ -174,7 +175,7 @@ class RAGService:
         self._index_lock = threading.Lock()
 
     def _load_reranker(self):
-        # Загрузка Cross-Encoder для ре-ранкинга при первом вызове
+        # Ленивая загрузка Cross-Encoder при первом обращении
         if self._reranker_tried:
             return self._reranker
         self._reranker_tried = True
@@ -188,7 +189,7 @@ class RAGService:
         return self._reranker
 
     def _expand_query(self, question: str) -> List[str]:
-        # Расширение запроса через LLM
+        # Генерирует 2 переформулировки вопроса через LLM для улучшения полноты поиска
         try:
             with self._model_lock:
                 llm = self.llm
@@ -209,7 +210,7 @@ class RAGService:
 
     @staticmethod
     def _reranker_score_to_display(raw_score: float) -> float:
-        # Преобразование оценки Cross-Encoder в диапазон [0, 1]
+        # Нормализует сырой logit Cross-Encoder в диапазон [0, 1] через сигмоиду
         return round(1.0 / (1.0 + math.exp(-raw_score / 3.0)), 3)
 
     @staticmethod
@@ -222,7 +223,7 @@ class RAGService:
 
     @staticmethod
     def _fallback_russian_stem(token: str) -> str:
-        # Упрощенный стемминг для русского языка
+        # Упрощённый стемминг: обрезает типичные русские окончания если NLTK недоступен
         suffixes = (
             "иями", "ями", "ами", "его", "ого", "ему", "ому", "ыми", "ими",
             "ией", "ей", "ий", "ый", "ой", "ая", "яя", "ое", "ее",
@@ -239,7 +240,7 @@ class RAGService:
         return normalized
 
     def _build_bm25_preprocess_func(self) -> Callable[[str], List[str]]:
-        # Настройка препроцессора для BM25 с поддержкой русского языка
+        # Строит препроцессор токенов для BM25: SnowballStemmer если NLTK доступен, иначе fallback
         try:
             from nltk.stem.snowball import SnowballStemmer
 
@@ -394,19 +395,18 @@ class RAGService:
         }
 
     def _get_bm25_retriever(self, k: int) -> Optional[BM25Retriever]:
-        # Получение BM25-ретривера с обновлением при изменении базы
+        # Dirty flag: перестраиваем индекс только после записи/удаления, не на каждый поиск
         with self._bm25_lock:
-            try:
-                current_count = self.vector_store._collection.count()
-            except Exception:
-                return None
+            if self._bm25_dirty:
+                try:
+                    data = self.vector_store.get(include=["documents", "metadatas"])
+                except Exception:
+                    return None
 
-            if current_count == 0:
-                return None
+                if not data.get("documents"):
+                    return None
 
-            if current_count != self._bm25_doc_count:
-                logger.info(f"Пересборка BM25-индекса ({current_count} чанков)...")
-                data = self.vector_store.get(include=["documents", "metadatas"])
+                logger.info(f"Пересборка BM25-индекса ({len(data['documents'])} чанков)...")
                 docs = [
                     Document(page_content=text, metadata=meta)
                     for text, meta in zip(data["documents"], data["metadatas"])
@@ -416,14 +416,16 @@ class RAGService:
                     docs,
                     preprocess_func=self._bm25_preprocess_func,
                 )
-                self._bm25_doc_count = current_count
+                self._bm25_dirty = False
                 logger.info("BM25-индекс готов")
+
+            if self._bm25_retriever is None:
+                return None
 
             self._bm25_retriever.k = k
             return self._bm25_retriever
 
     def set_model(self, model_name: str) -> Dict[str, str]:
-        # Смена текущей модели Ollama
         with self._model_lock:
             logger.info(f"Смена модели на: {model_name}")
             self.llm = ChatOllama(
@@ -438,7 +440,6 @@ class RAGService:
         return self._current_model_name
 
     def get_books(self) -> List[str]:
-        # Получение списка всех книг в базе
         results = self.vector_store.get(include=["metadatas"])
         sources = set()
         for meta in results.get("metadatas", []):
@@ -447,15 +448,26 @@ class RAGService:
         return sorted(list(sources))
 
     def get_indexing_progress(self) -> Dict[str, Dict]:
-        # Прогресс индексации активных задач
-        return dict(self._indexing_progress)
+        # Возвращает глубокую копию чтобы внешний код не мог изменить внутреннее состояние
+        import copy
+        with self._progress_lock:
+            return copy.deepcopy(self._indexing_progress)
+
+    def _set_progress(self, filename: str, data: Dict) -> None:
+        with self._progress_lock:
+            self._indexing_progress[filename] = data
+
+    def _clear_progress(self, filename: str) -> None:
+        with self._progress_lock:
+            self._indexing_progress.pop(filename, None)
 
     async def index_document_async(self, text: str, filename: str) -> AsyncGenerator[Dict[str, Any], None]:
-        # Асинхронная индексация документа с трансляцией прогресса
+        # Индексирует документ батчами, транслируя прогресс через SSE.
+        # Если индексация прервана или упала — откатывает частичные данные.
         indexed_any = False
         success = False
-        
-        # Предварительная очистка данных при повторной попытке
+
+        # Удаляем старые чанки если предыдущая индексация была прервана
         try:
             existing = await asyncio.to_thread(self.vector_store.get, where={"source": filename}, include=["metadatas"])
             if existing.get("ids") and len(existing["ids"]) > 0:
@@ -472,7 +484,7 @@ class RAGService:
                 doc = Document(page_content=text, metadata={"source": filename})
                 chunks = await asyncio.to_thread(self.text_splitter.split_documents, [doc])
                 
-                # Исключение слишком коротких фрагментов
+                # Короткие фрагменты (< 100 символов) не несут смысловой нагрузки
                 MIN_INDEX_CHUNK_LENGTH = 100
                 chunks = [
                     c for c in chunks
@@ -483,7 +495,7 @@ class RAGService:
                 source_version = self._detect_source_version(text)
 
                 total_chunks = len(chunks)
-                self._indexing_progress[filename] = {"percent": 0, "current": 0, "total": total_chunks}
+                self._set_progress(filename, {"percent": 0, "current": 0, "total": total_chunks})
                 yield {
                     "type": "start",
                     "filename": filename,
@@ -510,7 +522,7 @@ class RAGService:
                     
                     current_count = min(i + settings.index_batch_size, total_chunks)
                     pct = round((current_count / total_chunks) * 100)
-                    self._indexing_progress[filename] = {"percent": pct, "current": current_count, "total": total_chunks}
+                    self._set_progress(filename, {"percent": pct, "current": current_count, "total": total_chunks})
                     yield {
                         "type": "progress",
                         "current": current_count,
@@ -519,12 +531,12 @@ class RAGService:
                     }
                     await asyncio.sleep(0.05)
 
-                self._bm25_doc_count = -1
+                self._bm25_dirty = True
                 self._source_chunks_cache = {}
                 self._source_chunk_positions = {}
 
                 success = True
-                self._indexing_progress.pop(filename, None)
+                self._clear_progress(filename)
                 yield {
                     "type": "success",
                     "filename": filename,
@@ -532,11 +544,11 @@ class RAGService:
                 }
         except asyncio.CancelledError:
             logger.warning(f"Индексация '{filename}' отменена пользователем.")
-            self._indexing_progress.pop(filename, None)
+            self._clear_progress(filename)
             raise
         except Exception as e:
             logger.error(f"Ошибка при индексации '{filename}': {e}")
-            self._indexing_progress.pop(filename, None)
+            self._clear_progress(filename)
             raise
         finally:
             if indexed_any and not success:
@@ -549,7 +561,6 @@ class RAGService:
                     logger.error(f"Не удалось очистить данные для '{filename}': {cleanup_err}")
 
     def index_document(self, text: str, filename: str) -> Dict[str, Any]:
-        # Синхронная индексация документа
         with self._index_lock:
             logger.info(f"Начало индексации документа: {filename}")
 
@@ -588,7 +599,7 @@ class RAGService:
                 self.vector_store.add_documents(batch)
                 logger.info(f"[{filename}] Проиндексировано {min(i + settings.index_batch_size, len(chunks))} из {len(chunks)} чанков")
 
-            self._bm25_doc_count = -1
+            self._bm25_dirty = True
             self._source_chunks_cache = {}
             self._source_chunk_positions = {}
 
@@ -599,21 +610,20 @@ class RAGService:
             }
 
     def delete_document(self, filename: str) -> Dict[str, Any]:
-        # Удаление книги из базы
         with self._index_lock:
             existing = self.vector_store.get(where={"source": filename}, include=["metadatas"])
             ids = existing.get("ids", [])
             if not ids:
                 return {"deleted": False, "filename": filename}
             self.vector_store.delete(ids=ids)
-            self._bm25_doc_count = -1
+            self._bm25_dirty = True
             self._source_chunks_cache = {}
             self._source_chunk_positions = {}
             logger.info(f"Удалено {len(ids)} чанков книги '{filename}'")
             return {"deleted": True, "filename": filename, "chunks_removed": len(ids)}
 
     def search(self, query: str, top_k: int = 7, sources: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        # Гибридный поиск (векторный + BM25) с ре-ранкингом
+        # Гибридный поиск: векторный (cosine similarity) + BM25 (лексический) + lexical overlap boost
         logger.info(f"Поиск: '{query}', top_k={top_k}, sources={sources}")
         
         if sources is not None and len(sources) == 0:
@@ -643,7 +653,7 @@ class RAGService:
         query_tokens = self._query_tokens(query)
         ending_intent = self._has_ending_intent(query_tokens, query)
 
-        # Поиск кандидатов через векторное хранилище и BM25
+        # Фильтр по источникам передаётся напрямую в ChromaDB
         chroma_filter = {"source": {"$in": sources}} if sources is not None else None
             
         candidate_map: Dict[Tuple[str, int], Dict[str, Any]] = {}
@@ -668,7 +678,7 @@ class RAGService:
                     candidate["vector_rank"] = rank
                     candidate["vector_relevance"] = max(candidate["vector_relevance"], float(relevance))
 
-        # BM25 поиск (индекс пересобирается один раз, затем кэшируется)
+        # BM25 фильтрует по источникам вручную, так как не поддерживает фильтры ChromaDB
         bm25_retriever = self._get_bm25_retriever(k=bm25_candidate_k)
         if bm25_retriever:
             for q in queries:
@@ -702,7 +712,7 @@ class RAGService:
         if not candidate_docs:
             return []
 
-        # Гибридное ранжирование
+        # Reciprocal Rank Fusion: score = vector_w/(rank+10) + bm25_w/(rank+8) + lexical_w*overlap
         hybrid_ranked: List[Tuple[float, Document]] = []
         for item in candidate_map.values():
             doc = item["doc"]
@@ -724,7 +734,7 @@ class RAGService:
 
         hybrid_ranked.sort(key=lambda item: item[0], reverse=True)
         
-        # Расширение списка кандидатов за счет соседних чанков
+        # Добавляем соседние чанки чтобы не обрывать контекст на границах сплита
         rerank_pool_size = max(vector_candidate_k, top_k * 4)
         expanded_candidates: List[Document] = []
         seen_keys = set()
@@ -741,18 +751,14 @@ class RAGService:
 
         rerank_candidates = expanded_candidates[:rerank_pool_size]
 
-        # Финальное ранжирование через Cross-Encoder (ОТКЛЮЧЕНО ДЛЯ БЕЗОПАСНОСТИ)
-        # if reranker and len(rerank_candidates) > top_k:
-        #    ...
-        
-        # Используем базовое гибридное ранжирование (оно легкое)
+        # Cross-Encoder реранкинг отключён — слишком медленный на CPU без GPU буста
         final_docs = [
             (doc, round(score, 3))
             for score, doc in hybrid_ranked[:top_k]
         ]
         logger.info(f"Используется базовое ранжирование: {top_k} результатов")
 
-        # Форматирование результатов
+        # Фильтруем слишком короткие результаты и добавляем метаданные позиции
         MIN_CHUNK_LENGTH = 50
         formatted_results = []
         for doc, score in final_docs:
@@ -774,7 +780,6 @@ class RAGService:
         return formatted_results
 
     def _build_prompt(self, question: str, search_results: List[Dict[str, Any]]):
-        # Подготовка промпта для LLM
         context_notes = self._build_context_notes(question, search_results)
         context_parts = []
         if context_notes:
@@ -792,7 +797,6 @@ class RAGService:
         )
 
     async def ask_stream_async(self, question: str, top_k: int = 7, sources: Optional[List[str]] = None) -> AsyncGenerator[str, None]:
-        # Потоковая генерация ответа на вопрос
         search_results = await asyncio.to_thread(self.search, question, top_k, sources)
 
         if not search_results:
@@ -810,7 +814,6 @@ class RAGService:
             yield json.dumps({"type": "error", "text": f"Не удалось получить ответ от модели: {e}"})
 
     def ask(self, question: str, top_k: int = 7, sources: Optional[List[str]] = None) -> Tuple[str, List[Dict[str, Any]]]:
-        # Генерация ответа на вопрос
         logger.info(f"Вопрос: '{question}', top_k={top_k}, sources={sources}")
 
         search_results = self.search(question, top_k=top_k, sources=sources)

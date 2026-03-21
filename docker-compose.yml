@@ -13,6 +13,15 @@ services:
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - MODEL_NAME=${MODEL_NAME:-qwen3.5:4b}
+      - API_KEY=${API_KEY:-}
+    # GPU support (NVIDIA). Remove the deploy block if running CPU-only.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

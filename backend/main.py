@@ -1,10 +1,14 @@
-from fastapi import FastAPI
+import logging
+import uuid
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from api.dependencies import limiter
 from api.routes import router
 from config import settings
+
+logger = logging.getLogger("uvicorn")
 
 app = FastAPI(
     title="BookRAG API",
@@ -18,6 +22,16 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    """Attach X-Request-ID to every request/response for log tracing."""
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -29,8 +43,8 @@ app.add_middleware(
 async def _auto_index_books(books_dir: str, logger) -> None:
     import os
     import asyncio
-    import chardet
     from services.rag_service import rag_service
+    from services.book_parser import read_book_file
 
     txt_files = sorted(f for f in os.listdir(books_dir) if f.lower().endswith(".txt"))
     if not txt_files:
@@ -55,25 +69,7 @@ async def _auto_index_books(books_dir: str, logger) -> None:
         filepath = os.path.join(books_dir, filename)
         logger.info(f"📖 Авто-индексация: {filename}")
         try:
-            with open(filepath, "rb") as f:
-                content = f.read()
-
-            # Определяем кодировку через chardet, затем пробуем UTF-8 и CP1251
-            detected = chardet.detect(content)
-            detected_enc = detected.get("encoding") or "utf-8"
-            text = None
-            for enc in [detected_enc, "utf-8", "cp1251"]:
-                try:
-                    text = content.decode(enc)
-                    logger.info(f"Файл {filename} прочитан в кодировке {enc}")
-                    break
-                except (UnicodeDecodeError, LookupError):
-                    continue
-
-            if text is None:
-                text = content.decode("utf-8", errors="replace")
-                logger.warning(f"Файл {filename}: кодировка не определена, используем UTF-8 с заменой")
-
+            text = read_book_file(filepath)
             async for step in rag_service.index_document_async(text, filename):
                 if step.get("type") == "success":
                     logger.info(f"✅ Проиндексировано: {filename} ({step.get('chunks_added', '?')} чанков)")
@@ -87,7 +83,6 @@ async def _auto_index_books(books_dir: str, logger) -> None:
 async def startup_event():
     import os
     import asyncio
-    import chardet
     import httpx
     import logging
     logger = logging.getLogger("uvicorn")
