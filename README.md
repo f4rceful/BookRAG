@@ -11,25 +11,20 @@
 | Эмбеддинги | `intfloat/multilingual-e5-small` |
 | Векторная БД | ChromaDB (персистентная) |
 | LLM | Ollama (локально) |
-| Поиск | Гибридный BM25 + Векторный + Cross-Encoder ре-ранкинг |
-| Ре-ранкер | `cross-encoder/ms-marco-MiniLM-L12-v2` |
+| Поиск | Гибридный BM25 + Векторный + расширение контекста (radius=2) |
 
 ## Архитектура поиска
 
 ```text
 Запрос пользователя
         │
-        ├── Расширение запроса (Query Expansion via LLM)
-        │
         ├── Векторный поиск (ChromaDB, cosine similarity)
         │
         └── BM25 лексический поиск (с русским стеммером)
                     │
-              Гибридное слияние (RRF)
+              Гибридное слияние (RRF + lexical overlap)
                     │
-           Расширение контекста (соседние чанки)
-                    │
-          Cross-Encoder ре-ранкинг (точная оценка)
+     Расширение контекста (соседние чанки, radius=2)
                     │
                Топ-N результатов → LLM → Ответ
 ```
@@ -52,8 +47,8 @@ cd BookRAG
 ### 2. Скачайте модель Ollama
 
 ```bash
-# Рекомендуется (быстрая, хорошее качество на русском):
-ollama pull qwen2.5:3b
+# Рекомендуется (лучший баланс качества и скорости):
+ollama pull qwen2.5:7b
 
 # Или более мощный вариант:
 ollama pull gemma3:12b
@@ -109,7 +104,7 @@ docker-compose up --build
 
 ```env
 # Модель Ollama (должна быть скачана через ollama pull)
-MODEL_NAME=qwen2.5:3b
+MODEL_NAME=qwen2.5:7b
 
 # URL Ollama (по умолчанию локальный)
 OLLAMA_BASE_URL=http://localhost:11434
@@ -188,7 +183,7 @@ curl -X POST http://localhost:8000/api/ask \
 ```bash
 curl -X POST http://localhost:8000/api/model \
   -H "Content-Type: application/json" \
-  -d '{"model_name": "qwen3.5:4b"}'
+  -d '{"model_name": "qwen2.5:7b"}'
 ```
 
 Если модель не установлена в Ollama, вернётся `400` со списком доступных моделей.
@@ -199,9 +194,11 @@ curl -X POST http://localhost:8000/api/model \
 
 | Модель | RAM | Качество на русском | Скорость |
 | --- | --- | --- | --- |
+| `qwen2.5:7b` ⭐ | ~5 ГБ | ★★★★★ | Средняя |
 | `qwen2.5:3b` | ~2 ГБ | ★★★★☆ | Быстрая |
-| `gemma3:12b` | ~8 ГБ | ★★★★★ | Средняя |
-| `qwen2.5:0.5b` | ~1 ГБ | ★★★☆☆ | Очень быстрая |
+| `gemma3:12b` | ~8 ГБ | ★★★★★ | Медленная |
+
+> **Важно:** не используйте модели с суффиксом `:thinking` — они значительно замедляют ответ из-за режима размышлений.
 
 ---
 

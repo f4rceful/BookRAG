@@ -37,7 +37,7 @@ def get_current_model():
 @router.get("/models/available", summary="Список моделей доступных в Ollama")
 def get_available_models():
     try:
-        ollama_url = rag_service.llm.base_url.rstrip("/")
+        ollama_url = rag_service.get_ollama_url()
         resp = httpx.get(f"{ollama_url}/api/tags", timeout=5)
         models = [m["name"] for m in resp.json().get("models", [])]
         return {"models": models, "current": rag_service.get_current_model()}
@@ -47,7 +47,7 @@ def get_available_models():
 @router.post("/model", summary="Изменить модель Ollama")
 def set_model(request: ModelSetRequest):
     try:
-        ollama_url = rag_service.llm.base_url.rstrip("/")
+        ollama_url = rag_service.get_ollama_url()
         resp = httpx.get(f"{ollama_url}/api/tags", timeout=5)
         available = [m["name"] for m in resp.json().get("models", [])]
         if request.model_name not in available:
@@ -78,7 +78,7 @@ async def get_books():
 async def get_stats():
     try:
         books = await asyncio.to_thread(rag_service.get_books)
-        count = await asyncio.to_thread(rag_service.vector_store._collection.count)
+        count = await asyncio.to_thread(rag_service.count_chunks)
         return {"books_count": len(books), "chunks_count": count}
     except Exception as e:
         return {"books_count": 0, "chunks_count": 0, "error": str(e)}

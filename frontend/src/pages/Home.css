@@ -241,6 +241,43 @@
 
 @media (max-width: 800px) {
   .book-item {
-    padding: 20px;
+    padding: 16px;
+  }
+
+  .upload-area {
+    padding: 24px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .upload-area {
+    padding: 20px 12px;
+  }
+
+  .upload-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .upload-text {
+    font-size: 0.95rem;
+  }
+
+  .book-item {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .book-name {
+    font-size: 0.9rem;
+  }
+
+  .delete-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .library-meta h2 {
+    font-size: 1.3rem;
   }
 }

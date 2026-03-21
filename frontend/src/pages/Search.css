@@ -207,6 +207,7 @@
   background: var(--brand);
   display: inline-block;
   margin-left: 4px;
+  vertical-align: middle;
   animation: blink 0.8s infinite;
 }
 
@@ -349,12 +350,63 @@
   .search-bar {
     flex-direction: column;
   }
-  
+
+  .search-bar input {
+    font-size: 1rem;
+  }
+
   .primary-btn {
     width: 100%;
+    justify-content: center;
   }
 
   .sources-list {
     grid-template-columns: 1fr;
+  }
+
+  .example-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs-container {
+    border-radius: var(--radius-md);
+    width: 100%;
+  }
+
+  .tab-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+  }
+
+  .book-filter-chips {
+    gap: 6px;
+  }
+
+  .book-chip {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+  }
+
+  .answer-box {
+    padding: 16px;
+  }
+
+  .answer-box p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .source-card {
+    padding: 14px;
+  }
+
+  .result-item {
+    padding: 16px;
+  }
+
+  .score-badge {
+    font-size: 0.75rem;
   }
 }

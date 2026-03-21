@@ -52,8 +52,7 @@
 }
 
 .card {
-  background: var(--surface);
-  backdrop-filter: blur(20px) saturate(180%);
+  background: var(--surface-strong);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 32px;
@@ -160,7 +159,7 @@ input[type="text"]:focus {
 
 @media (max-width: 800px) {
   .main-content {
-    padding: 24px 16px 40px;
+    padding: 20px 16px 60px;
   }
 
   .page-header {
@@ -169,6 +168,21 @@ input[type="text"]:focus {
   }
 
   .page-title-group h1 {
-    font-size: 2.8rem;
+    font-size: 2.2rem;
+  }
+
+  .card {
+    padding: 20px;
+    border-radius: var(--radius-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title-group h1 {
+    font-size: 1.8rem;
+  }
+
+  .card {
+    padding: 16px;
   }
 }

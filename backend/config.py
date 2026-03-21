@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     )
 
     ollama_base_url: str = "http://localhost:11434"
-    model_name: str = "qwen3.5:4b"
+    model_name: str = "qwen2.5:7b"
     embedding_model: str = "BAAI/bge-m3"
     chroma_persist_directory: str = str(_BASE_DIR / "chroma_db")
     books_directory: str = str(_BASE_DIR / "books")

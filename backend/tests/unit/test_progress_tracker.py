@@ -1,43 +1,40 @@
 import threading
-import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock
+
+from services.indexer import IndexerService
 
 
-def make_rag_service():
-    # Создаёт RAGService с замоканными тяжёлыми зависимостями (torch, chromadb, ollama)
-    with (
-        patch("services.rag_service._build_embeddings"),
-        patch("services.rag_service.Chroma"),
-        patch("services.rag_service.ChatOllama"),
-        patch("services.rag_service.settings"),
-    ):
-        from services.rag_service import RAGService
-        svc = RAGService.__new__(RAGService)
-        svc._indexing_progress = {}
-        svc._progress_lock = threading.Lock()
-        return svc
+def make_indexer() -> IndexerService:
+    # Создаёт IndexerService с замоканным vector_store — без реальной ChromaDB
+    svc = IndexerService.__new__(IndexerService)
+    svc._vector_store = MagicMock()
+    svc._text_splitter = MagicMock()
+    svc._indexing_progress = {}
+    svc._progress_lock = threading.Lock()
+    svc._index_lock = threading.Lock()
+    return svc
 
 
 class TestProgressTracker:
     def test_set_and_get_progress(self):
-        svc = make_rag_service()
+        svc = make_indexer()
         svc._set_progress("book.txt", {"percent": 50, "current": 5, "total": 10})
         result = svc.get_indexing_progress()
         assert result == {"book.txt": {"percent": 50, "current": 5, "total": 10}}
 
     def test_clear_progress_removes_entry(self):
-        svc = make_rag_service()
+        svc = make_indexer()
         svc._set_progress("book.txt", {"percent": 100, "current": 10, "total": 10})
         svc._clear_progress("book.txt")
         assert "book.txt" not in svc.get_indexing_progress()
 
     def test_clear_progress_missing_key_no_error(self):
-        svc = make_rag_service()
+        svc = make_indexer()
         svc._clear_progress("nonexistent.txt")
 
     def test_get_progress_returns_copy(self):
         # Мутация возвращённого dict не должна влиять на внутреннее состояние
-        svc = make_rag_service()
+        svc = make_indexer()
         svc._set_progress("book.txt", {"percent": 0, "current": 0, "total": 10})
         snapshot = svc.get_indexing_progress()
         snapshot["book.txt"]["percent"] = 999
@@ -45,7 +42,7 @@ class TestProgressTracker:
 
     def test_concurrent_set_progress_no_data_race(self):
         # 10 потоков пишут одновременно — не должно быть искажения состояния
-        svc = make_rag_service()
+        svc = make_indexer()
         errors = []
 
         def write_progress(book_id: int):

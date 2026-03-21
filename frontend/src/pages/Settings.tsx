@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, RefreshCw, Cpu, Terminal, HelpCircle } from 'lucide-react';
+import { Save, RefreshCw, Cpu, HelpCircle } from 'lucide-react';
 import './Settings.css';
 
 const Settings = () => {
@@ -68,9 +68,6 @@ const Settings = () => {
           <h1>Конфигурация</h1>
           <p>Настройка параметров искусственного интеллекта и выбор локальных языковых моделей.</p>
         </div>
-        <button className="refresh-btn" onClick={fetchData} title="Обновить список моделей">
-          <RefreshCw size={20} />
-        </button>
       </div>
 
       <div className="card settings-card">
@@ -82,29 +79,33 @@ const Settings = () => {
           Выберите LLM (Large Language Model), которая будет отвечать за анализ текста и формирование ответов. Рекомендуется использовать модели объемом от 7B параметров для лучшего качества.
         </p>
         
-        <div className="current-model-info">
-          <span>Активная модель</span>
-          <span className="model-badge">{currentModel}</span>
-        </div>
-
         <div className="settings-form">
           <div className="input-group">
-            <label>Доступные в системе:</label>
-            <select 
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={status.type === 'loading'}
-            >
-              <option value="" disabled>-- Выберите модель из списка --</option>
-              {availableModels.map(model => (
-                <option key={model} value={model}>{model}</option>
-              ))}
-              {availableModels.length === 0 && <option value="" disabled>Модели не найдены</option>}
-            </select>
+            <label>
+              Модель генерации
+              <span className="active-model-hint">сейчас активна: {currentModel}</span>
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={status.type === 'loading'}
+                style={{ flex: 1 }}
+              >
+                <option value="" disabled>-- Выберите модель из списка --</option>
+                {availableModels.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+                {availableModels.length === 0 && <option value="" disabled>Модели не найдены</option>}
+              </select>
+              <button className="refresh-btn" onClick={fetchData} title="Обновить список моделей">
+                <RefreshCw size={18} />
+              </button>
+            </div>
           </div>
-          <button 
+          <button
             className="primary-btn save-btn"
-            onClick={handleSetModel} 
+            onClick={handleSetModel}
             disabled={status.type === 'loading' || !selectedModel || selectedModel === currentModel}
           >
             <Save size={20} />
@@ -128,22 +129,30 @@ const Settings = () => {
         <div className="recommendations">
           <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
             <HelpCircle size={20} color="var(--text-secondary)" />
-            <h3 className="serif">Как расширить список?</h3>
+            <h3 className="serif">Как добавить модель?</h3>
           </div>
-          <p>Для добавления новых моделей используйте CLI Ollama. Мы рекомендуем следующие модели:</p>
-          <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
-            <div>
-                <span style={{fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)'}}>ОПТИМАЛЬНО ДЛЯ РУССКОГО:</span>
-                <code>ollama pull gemma3:12b</code>
+          <p>Скачайте модель через Ollama, затем нажмите кнопку обновления рядом со списком.</p>
+          <div className="model-recommendations">
+            <div className="model-rec-item recommended">
+              <div className="model-rec-header">
+                <span className="model-rec-name">qwen2.5:7b</span>
+                <span className="model-rec-badge">Рекомендуем</span>
+              </div>
+              <span className="model-rec-desc">Лучший баланс качества и скорости для русского языка</span>
+              <code>ollama pull qwen2.5:7b</code>
             </div>
-            <div>
-                <span style={{fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)'}}>ЛЕГКАЯ И БЫСТРАЯ:</span>
-                <code>ollama pull llama3.2:3b</code>
+            <div className="model-rec-item">
+              <div className="model-rec-header">
+                <span className="model-rec-name">gemma3:12b</span>
+              </div>
+              <span className="model-rec-desc">Высокое качество, требует больше RAM</span>
+              <code>ollama pull gemma3:12b</code>
+            </div>
+            <div className="thinking-warning">
+              <span>⚠️</span>
+              <span>Используйте модели <strong>без режима размышлений</strong> — варианты с суффиксом <code style={{background: 'transparent', color: 'inherit', padding: 0, fontSize: 'inherit', border: '1px solid currentColor', borderRadius: 4, padding: '1px 5px'}}>:thinking</code> значительно замедляют ответ.</span>
             </div>
           </div>
-          <p style={{marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: 6}}>
-            <Terminal size={14} /> После загрузки нажмите кнопку обновления вверху страницы.
-          </p>
         </div>
       </div>
     </motion.div>

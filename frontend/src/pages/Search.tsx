@@ -55,6 +55,7 @@ const Search = () => {
 
   // Состояние фильтра книг
   const [books, setBooks] = useState<string[]>([]);
+  const [booksLoading, setBooksLoading] = useState(true);
   const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
 
   // Состояние поиска
@@ -80,7 +81,8 @@ const Search = () => {
     fetch(`${import.meta.env.VITE_API_URL}/api/books`)
       .then((r) => r.json())
       .then((data) => setBooks(data.books || []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setBooksLoading(false));
   }, []);
 
   const toggleBook = (book: string) => {
@@ -203,7 +205,7 @@ const Search = () => {
         </div>
       </div>
 
-      {books.length === 0 ? (
+      {booksLoading ? null : books.length === 0 ? (
         <div className="card" style={{textAlign: 'center', padding: '60px 20px'}}>
            <Info size={48} strokeWidth={1.5} style={{opacity: 0.3, marginBottom: 20}} />
            <h2 className="serif">Библиотека пуста</h2>
@@ -258,12 +260,18 @@ const Search = () => {
           </div>
 
           <div className="card search-card">
-            {!hasSearched && !isAsking && (
+            {!hasSearched && (
               <div className="quick-examples">
                 <span className="book-filter-label">Попробуйте спросить:</span>
                 <div className="example-grid">
                   {exampleQueries.map((q, i) => (
-                    <button key={i} className="example-item" onClick={() => handleQuickQuery(q.text, q.type as any)}>
+                    <button
+                      key={i}
+                      className="example-item"
+                      onClick={() => handleQuickQuery(q.text, q.type as any)}
+                      disabled={isAsking || isSearching}
+                      style={{ opacity: isAsking || isSearching ? 0.5 : 1, cursor: isAsking || isSearching ? 'not-allowed' : 'pointer' }}
+                    >
                       <span>{q.text}</span>
                       <ExternalLink size={14} />
                     </button>
@@ -314,9 +322,8 @@ const Search = () => {
                         <div className="answer-header">
                           <span className="ai-badge">AI</span>
                           <h3 className="serif">Ответ системы</h3>
-                          {isAsking && <span className="streaming-indicator" />}
                         </div>
-                        <p>{displayedAnswer}</p>
+                        <p>{displayedAnswer}{isAsking && <span className="streaming-indicator" />}</p>
                       </div>
 
                       <AnimatePresence>

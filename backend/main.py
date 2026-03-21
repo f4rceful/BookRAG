@@ -51,16 +51,9 @@ async def _auto_index_books(books_dir: str, logger) -> None:
         return
 
     for filename in txt_files:
-        existing = await asyncio.to_thread(
-            rag_service.vector_store.get,
-            where={"source": filename},
-            include=["metadatas"]
-        )
-        existing_ids = existing.get("ids", [])
-        existing_metas = existing.get("metadatas", [])
-        if existing_ids:
-            expected = existing_metas[0].get("source_total_chunks", 0) if existing_metas else 0
-            actual = len(existing_ids)
+        status = await asyncio.to_thread(rag_service.check_book_status, filename)
+        actual, expected = status["actual"], status["expected"]
+        if actual > 0:
             if expected > 0 and actual >= expected:
                 logger.info(f"📚 Книга уже в базе, пропускаем: {filename} ({actual} чанков)")
                 continue
